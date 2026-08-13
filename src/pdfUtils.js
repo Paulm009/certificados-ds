@@ -1,14 +1,19 @@
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
-import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import Certificate from './components/Certificate';
+import OficioSheet from './components/OficioSheet';
 
-const CERT_W = 1650;
-const CERT_H = 1275;
+const CERT_W = 1889;
+const CERT_H = 1200;
+
+const OFICIO_PAGE_W = 1200;
+const OFICIO_PAGE_H = 1889;
+const OFICIO_PDF_W = 215.9;
+const OFICIO_PDF_H = 339.85;
 
 /**
  * Ensure fonts and images referenced by the certificate are fully loaded
@@ -65,17 +70,17 @@ async function renderCertToCanvas(certElement) {
 
 /**
  * Convert a rendered canvas into a PDF blob.
- * Output: letter-size landscape (11"×8.5") at high DPI for direct printing.
+ * Output: oficio-size landscape (340mm×216mm) at high DPI for direct printing.
  */
 function canvasToPdfBlob(canvas) {
   const pdf = new jsPDF({
     orientation: 'landscape',
-    unit: 'pt',
-    format: 'letter'
+    unit: 'mm',
+    format: [339.85, 215.9]
   });
 
-  const pageW = pdf.internal.pageSize.getWidth();   // 792
-  const pageH = pdf.internal.pageSize.getHeight();  // 612
+  const pageW = pdf.internal.pageSize.getWidth();   // 339.85 mm
+  const pageH = pdf.internal.pageSize.getHeight();  // 215.9 mm
 
   const imgData = canvas.toDataURL('image/jpeg', 0.98);
   pdf.addImage(imgData, 'JPEG', 0, 0, pageW, pageH);
@@ -100,42 +105,119 @@ export async function generatePDF(certElement, studentName, translations) {
 }
 
 /**
- * Generate all PDFs for multiple students and download them as a single ZIP.
- * Each certificate is rendered with the same React component used in the
- * preview, so the design (logos included) is preserved in every file.
+ * Render a full oficio sheet (2 certificates stacked) to a canvas at high
+ * resolution, preserving the scaled certificate design (logos included).
  */
-export async function generateAllPDFs(students, directorName, translations) {
-  const t = translations;
-  const zip = new JSZip();
+async function renderOficioToCanvas(pageElement) {
+  await ensureAssetsLoaded();
+  const dataUrl = await toPng(pageElement, {
+    width: OFICIO_PAGE_W,
+    height: OFICIO_PAGE_H,
+    pixelRatio: 2,
+    backgroundColor: '#ffffff'
+  });
 
+  const image = new Image();
+  image.src = dataUrl;
+  await new Promise((resolve, reject) => {
+    image.onload = resolve;
+    image.onerror = () => reject(new Error('No se pudo procesar la imagen de la hoja oficio.'));
+  });
+
+  const canvas = document.createElement('canvas');
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  canvas.getContext('2d').drawImage(image, 0, 0);
+  return canvas;
+}
+
+/**
+ * Convert a rendered oficio canvas into a PDF blob.
+ * Output: oficio size portrait (215.9mm × 339.85mm) for direct printing.
+ */
+function oficioCanvasToPdfBlob(canvas) {
+  const pdf = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: [OFICIO_PDF_W, OFICIO_PDF_H]
+  });
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const imgData = canvas.toDataURL('image/jpeg', 0.98);
+  pdf.addImage(imgData, 'JPEG', 0, 0, pageW, pageH);
+  return pdf.output('blob');
+}
+
+function createHost() {
   const host = document.createElement('div');
   host.style.cssText = 'position:fixed;top:-9999px;left:-9999px;z-index:-1;';
   document.body.appendChild(host);
+  return host;
+}
+
+/**
+ * Generate a single oficio PDF containing 2 certificates (top and bottom),
+ * using the same React components as the preview so the design is preserved.
+ */
+export async function generateOficioPDF(pair, directorName, translations) {
+  const t = translations;
+  const host = createHost();
   const root = createRoot(host);
 
   try {
-    for (let i = 0; i < students.length; i++) {
+    flushSync(() => root.render(
+      React.createElement(OficioSheet, { t, students: pair, directorName })
+    ));
+    const pageEl = host.querySelector('.oficio-page');
+    const canvas = await renderOficioToCanvas(pageEl);
+    const blob = oficioCanvasToPdfBlob(canvas);
+
+    const name1 = safeFileName(pair?.[0]?.studentName, 'estudiante');
+    const name2 = safeFileName(pair?.[1]?.studentName, 'estudiante');
+    saveAs(blob, `${t.pdfPrefix}_oficio_${name1}_${name2}.pdf`);
+  } finally {
+    root.unmount();
+    document.body.removeChild(host);
+  }
+}
+
+/**
+ * Generate a single PDF with all certificates grouped 2 per oficio page
+ * (students are paired in order: 1&2, 3&4, ...). An odd last student gets
+ * its own page. Used by the Excel bulk upload flow.
+ */
+export async function generateAllOficioPDFs(students, directorName, translations) {
+  const t = translations;
+  const host = createHost();
+  const root = createRoot(host);
+
+  const pdf = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: [OFICIO_PDF_W, OFICIO_PDF_H]
+  });
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+
+  try {
+    for (let i = 0; i < students.length; i += 2) {
+      const pair = [students[i], students[i + 1]];
       flushSync(() => root.render(
-        React.createElement(Certificate, {
-          t,
-          student: students[i],
-          directorName
-        })
+        React.createElement(OficioSheet, { t, students: pair, directorName })
       ));
 
-      const certEl = host.querySelector('#certificate');
-      const canvas = await renderCertToCanvas(certEl);
-      const blob = canvasToPdfBlob(canvas);
+      const pageEl = host.querySelector('.oficio-page');
+      const canvas = await renderOficioToCanvas(pageEl);
+      const imgData = canvas.toDataURL('image/jpeg', 0.98);
 
-      const safeName = safeFileName(students[i].studentName, 'estudiante');
-      const fileName = `${t.pdfPrefix}_${String(i + 1).padStart(3, '0')}_${safeName}.pdf`;
-      zip.file(fileName, blob);
+      if (i > 0) pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, 0, pageW, pageH);
     }
   } finally {
     root.unmount();
     document.body.removeChild(host);
   }
 
-  const zipBlob = await zip.generateAsync({ type: 'blob' });
-  saveAs(zipBlob, `${t.pdfPrefix}s.zip`);
+  const blob = pdf.output('blob');
+  saveAs(blob, `${t.pdfPrefix}s_2por_hoja.pdf`);
 }

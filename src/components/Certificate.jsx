@@ -5,7 +5,7 @@ const LOGO_LEFT = '/logoacademyt.png';
 const LOGO_RIGHT = '/DSlogoBlancoSinFondo.png';
 const SEAL_IMG = '/logoacademyt.png';
 
-const Certificate = forwardRef(function Certificate({ t, student, directorName }, ref) {
+const Certificate = forwardRef(function Certificate({ t, student, directorName, narrow = false }, ref) {
   const s = student || {};
   const sName = s.studentName?.trim() || t.defaultStudent;
   const cName = s.courseName?.trim() || t.defaultCourse;
@@ -14,23 +14,35 @@ const Certificate = forwardRef(function Certificate({ t, student, directorName }
   const teacher = s.teacherName?.trim() || t.defaultTeacher;
 
   return (
-    <div id="certificate" ref={ref}>
-      {/* Corner decorations */}
-      <svg className="corner-tr" viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg">
-        <polygon points="300,0 300,220 90,0" fill="#ececec" />
-        <polygon points="300,0 300,130 160,0" fill="#1a1a1a" />
-        <line x1="100" y1="0" x2="300" y2="200" stroke="#b3872f" strokeWidth="2" />
+    <div id="certificate" ref={ref} className={narrow ? 'cert-narrow' : ''}>
+      {/* Esquinas decorativas tipo abanico */}
+      <svg className="corner-tr" viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="hatch-tr" width="12" height="12" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+            <rect width="12" height="12" fill="#141414" />
+            <line x1="0" y1="0" x2="0" y2="12" stroke="#3a3a3a" strokeWidth="1" />
+          </pattern>
+        </defs>
+        <polygon points="320,0 320,260 30,0" fill="url(#hatch-tr)" />
+        <polygon points="320,0 320,150 190,0" fill="#141414" />
+        <line x1="80" y1="0" x2="320" y2="222" stroke="#b3872f" strokeWidth="2" />
       </svg>
-      <svg className="corner-bl" viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg">
-        <polygon points="300,0 300,220 90,0" fill="#ececec" />
-        <polygon points="300,0 300,130 160,0" fill="#1a1a1a" />
-        <line x1="100" y1="0" x2="300" y2="200" stroke="#b3872f" strokeWidth="2" />
+      <svg className="corner-bl" viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="hatch-bl" width="12" height="12" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+            <rect width="12" height="12" fill="#141414" />
+            <line x1="0" y1="0" x2="0" y2="12" stroke="#3a3a3a" strokeWidth="1" />
+          </pattern>
+        </defs>
+        <polygon points="320,0 320,260 30,0" fill="url(#hatch-bl)" />
+        <polygon points="320,0 320,150 190,0" fill="#141414" />
+        <line x1="80" y1="0" x2="320" y2="222" stroke="#b3872f" strokeWidth="2" />
       </svg>
 
       <div className="gold-frame" />
 
       <div className="content">
-        {/* Header with logos */}
+        {/* Header con logos */}
         <div className="header-row">
           <div className="logo-box left">
             <img src={LOGO_LEFT} alt="Logo" />
@@ -55,10 +67,10 @@ const Certificate = forwardRef(function Certificate({ t, student, directorName }
         <p className="course-lead">{t.certCourseLead}</p>
         <p className="course-name">{cName}</p>
 
-        {/* Info row */}
+        {/* Fila de info */}
         <div className="info-row">
           <div className="info-item">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.6">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.6">
               <circle cx="12" cy="12" r="9" />
               <path d="M12 7v5l3.5 2" />
             </svg>
@@ -69,7 +81,7 @@ const Certificate = forwardRef(function Certificate({ t, student, directorName }
           </div>
           <div className="info-sep" />
           <div className="info-item">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.6">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.6">
               <rect x="3" y="5" width="18" height="16" rx="2" />
               <path d="M8 3v4M16 3v4M3 10h18" />
             </svg>

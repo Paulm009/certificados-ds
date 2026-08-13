@@ -4,8 +4,8 @@ import Certificate from './components/Certificate';
 import StudentNav from './components/StudentNav';
 import { translations } from './translations';
 
-const CERT_W = 1650;
-const CERT_H = 1275;
+const CERT_W = 1889;
+const CERT_H = 1200;
 const DIRECTOR_NAME = 'Ing. Paul Martinez';
 
 export default function App() {

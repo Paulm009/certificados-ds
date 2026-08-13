@@ -1,6 +1,6 @@
 import React, { useRef, useCallback } from 'react';
 import * as XLSX from 'xlsx';
-import { generatePDF, generateAllPDFs } from '../pdfUtils';
+import { generatePDF, generateOficioPDF, generateAllOficioPDFs } from '../pdfUtils';
 import { makeEmptyStudent } from '../App';
 
 export default function Panel({
@@ -13,6 +13,8 @@ export default function Panel({
   const [excelCount, setExcelCount] = React.useState(0);
   const [status, setStatus] = React.useState('');
   const [statusType, setStatusType] = React.useState('');
+  const [showOficio, setShowOficio] = React.useState(false);
+  const [oficioStudents, setOficioStudents] = React.useState([makeEmptyStudent(), makeEmptyStudent()]);
 
   const s = student || {};
 
@@ -138,8 +140,41 @@ export default function Panel({
   const handleDownloadAll = async () => {
     setStatusMsg(t.statusGeneratingAll, '');
     try {
-      await generateAllPDFs(students, directorName, t);
+      await generateAllOficioPDFs(students, directorName, t);
       setStatusMsg(t.statusAllOk, 'ok');
+    } catch (err) {
+      console.error(err);
+      setStatusMsg(t.statusErr, 'err');
+    }
+  };
+
+  const openOficio = () => {
+    setOficioStudents([
+      { ...s },
+      makeEmptyStudent()
+    ]);
+    setShowOficio(true);
+  };
+
+  const updateOficioStudent = (idx, field, value) => {
+    setOficioStudents(prev => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], [field]: value };
+      return next;
+    });
+  };
+
+  const handleGenerateOficio = async () => {
+    const filled = oficioStudents.every(st => st.studentName?.trim() && st.courseName?.trim());
+    if (!filled) {
+      setStatusMsg(t.uploadError, 'err');
+      return;
+    }
+    setStatusMsg(t.statusGenerating, '');
+    try {
+      await generateOficioPDF(oficioStudents, directorName, t);
+      setStatusMsg(t.statusOficioOk, 'ok');
+      setShowOficio(false);
     } catch (err) {
       console.error(err);
       setStatusMsg(t.statusErr, 'err');
@@ -278,6 +313,14 @@ export default function Panel({
       </div>
 
       <div className="actions">
+        <button className="btn-secondary" onClick={openOficio}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="5" width="18" height="16" rx="2" />
+            <path d="M8 3v4M16 3v4M3 10h18" />
+          </svg>
+          <span>{t.btnOficio2}</span>
+        </button>
+
         <button className="btn-primary" onClick={handleDownloadOne} disabled={!ready}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -300,6 +343,89 @@ export default function Panel({
 
         <div className={`status ${statusType}`}>{status}</div>
       </div>
+
+      {showOficio && (
+        <div className="modal-overlay" onClick={() => setShowOficio(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h2>{t.oficioModalTitle}</h2>
+              <button className="modal-close" onClick={() => setShowOficio(false)}>✕</button>
+            </div>
+
+            <div className="oficio-grid">
+              {[0, 1].map(idx => {
+                const st = oficioStudents[idx] || makeEmptyStudent();
+                return (
+                  <div className="oficio-form" key={idx}>
+                    <div className="oficio-form-title">
+                      <span className="sec-index">{idx === 0 ? '01' : '02'}</span>
+                      {idx === 0 ? t.oficioStudentTop : t.oficioStudentBottom}
+                    </div>
+                    <div className="field">
+                      <label>{t.lblStudentName}</label>
+                      <input
+                        type="text"
+                        value={st.studentName || ''}
+                        onChange={(e) => updateOficioStudent(idx, 'studentName', e.target.value)}
+                        placeholder={t.placeholderStudent}
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div className="field">
+                      <label>{t.lblCourseName}</label>
+                      <input
+                        type="text"
+                        value={st.courseName || ''}
+                        onChange={(e) => updateOficioStudent(idx, 'courseName', e.target.value)}
+                        placeholder={t.placeholderCourse}
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div className="row2">
+                      <div className="field">
+                        <label>{t.lblHours}</label>
+                        <input
+                          type="text"
+                          value={st.hours || ''}
+                          onChange={(e) => updateOficioStudent(idx, 'hours', e.target.value)}
+                          placeholder={t.placeholderHours}
+                          autoComplete="off"
+                        />
+                      </div>
+                      <div className="field">
+                        <label>{t.lblDate}</label>
+                        <input
+                          type="text"
+                          value={st.certDate || ''}
+                          onChange={(e) => updateOficioStudent(idx, 'certDate', e.target.value)}
+                          placeholder={t.placeholderDate}
+                          autoComplete="off"
+                        />
+                      </div>
+                    </div>
+                    <div className="field">
+                      <label>{t.lblTeacher}</label>
+                      <input
+                        type="text"
+                        value={st.teacherName || ''}
+                        onChange={(e) => updateOficioStudent(idx, 'teacherName', e.target.value)}
+                        placeholder={t.placeholderTeacher}
+                        autoComplete="off"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={() => setShowOficio(false)}>{t.btnCancel}</button>
+              <button className="btn-primary" onClick={handleGenerateOficio}>{t.btnGenerateOficio}</button>
+            </div>
+            <div className={`status ${statusType}`}>{status}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
